@@ -7,33 +7,37 @@ open Dapper.FSharp.PostgreSQL
 
 open Rinha
 
-let personTable: QuerySource<Dto.OutputPessoaDto> =
-    table'<Dto.OutputPessoaDto> "pessoas"
+let personTable: QuerySource<Dto.DatabasePessoaDto> =
+    table'<Dto.DatabasePessoaDto> "pessoas"
 
-let insertPessoa (conn: IDbConnection) (pessoa: Dto.OutputPessoaDto) : Task<int> =
+let insertPessoa (conn: IDbConnection) (pessoa: Dto.DatabasePessoaDto) : Task<int> =
     insert {
         into personTable
         value pessoa
     }
     |> conn.InsertAsync
 
-let searchPessoas (conn: IDbConnection) =
+let searchPessoasByT (conn: IDbConnection) (t: string) =
+    let pattern = $"%%{t}%%"
+
     select {
-        for _p in personTable do
-            take 50
+        for p in personTable do
+            where (like p.apelido pattern)
+            orWhere (like p.nome pattern)
+            orWhere (like p.stack pattern)
     }
-    |> conn.SelectAsync<Dto.OutputPessoaDto>
+    |> conn.SelectAsync<Dto.DatabasePessoaDto>
 
 let searchPessoaById (conn: IDbConnection) (id: Guid) =
     select {
         for p in personTable do
             where (p.id = id)
     }
-    |> conn.SelectAsync<Dto.OutputPessoaDto>
+    |> conn.SelectAsync<Dto.DatabasePessoaDto>
 
 let countPessoas (conn: IDbConnection) =
     select {
         for _p in personTable do
             count "*" "Value"
     }
-    |> conn.SelectAsync<{| Value: int |}>
+    |> conn.SelectAsync<{| Value: int64 |}>

@@ -18,10 +18,10 @@ let errorHandler (ex: Exception) (logger: ILogger) =
 let webApp =
     choose
         [ GET >=> route "/ping" >=> text "pong"
-          POST >=> route "/pessoas" >=> createPessoaHandler
-          GET >=> routef "/pessoas/%s" (fun id -> text ($"id: {id}"))
-          GET >=> route "/pessoas" >=> readPessoasHandler
-          GET >=> route "/contagem-pessoas" >=> text "TODO"
+          POST >=> route "/pessoas" >=> createPessoaHandler ()
+          GET >=> routef "/pessoas/%s" searchPessoaByIdHandler
+          GET >=> route "/pessoas" >=> searchPessoasByTHandler ()
+          GET >=> route "/contagem-pessoas" >=> countPessoasHandler ()
           setStatusCode 404 >=> text "Not found" ]
 
 let configureApp (app: IApplicationBuilder) =

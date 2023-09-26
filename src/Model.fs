@@ -57,32 +57,10 @@ module Dto =
     type InputPessoaDto =
         { apelido: string
           nome: string
-          // Can't use DateOnly with Dapper
-          // https://github.com/DapperLib/Dapper/issues/1715
-          nascimento: DateTime
+          nascimento: DateOnly
           stack: string list }
 
-    // Must be lowercase due to:
-    // https://github.com/Dzoukr/Dapper.FSharp#how-does-the-library-works
-    [<CLIMutable>]
-    type OutputPessoaDto =
-        { id: Guid
-          apelido: string
-          nome: string
-          nascimento: DateTime
-          stack: string }
-
     module InputPessoaDto =
-
-        let fromDomain (pessoa: Domain.Pessoa) : InputPessoaDto =
-            let nome = pessoa.Nome |> Domain.ValidNome.value
-            let apelido = pessoa.Apelido |> Domain.ValidApelido.value
-            let stack = pessoa.Stack |> Domain.ValidStack.value
-
-            { apelido = apelido
-              nome = nome
-              nascimento = pessoa.Nascimento
-              stack = stack }
 
         let toDomain (dto: InputPessoaDto) : Result<Domain.Pessoa, string> =
             result {
@@ -90,7 +68,7 @@ module Dto =
                 let! apelido = dto.apelido |> Domain.ValidApelido.create
                 let! stack = dto.stack |> Domain.ValidStack.create
                 let id = Guid.NewGuid()
-                let nascimento = dto.nascimento
+                let nascimento = dto.nascimento |> string |> DateTime.Parse
 
                 return
                     { Id = id
@@ -100,16 +78,49 @@ module Dto =
                       Stack = stack }
             }
 
-    module OutputPessoaDto =
+    // Must be lowercase due to:
+    // https://github.com/Dzoukr/Dapper.FSharp#how-does-the-library-works
+    [<CLIMutable>]
+    type DatabasePessoaDto =
+        { id: Guid
+          apelido: string
+          nome: string
+          nascimento: DateTime
+          stack: string }
 
-        let fromDomain (pessoa: Domain.Pessoa) : OutputPessoaDto =
+    module DatabasePessoaDto =
+
+        let fromDomain (pessoa: Domain.Pessoa) : DatabasePessoaDto =
             let id = pessoa.Id
             let nome = pessoa.Nome |> Domain.ValidNome.value
             let apelido = pessoa.Apelido |> Domain.ValidApelido.value
             let stack = pessoa.Stack |> Domain.ValidStack.value
+            let nascimento = pessoa.Nascimento
 
             { id = id
               apelido = apelido
               nome = nome
-              nascimento = pessoa.Nascimento
+              nascimento = nascimento
+              stack = stack.ToString() }
+
+    type OutputPessoaDto =
+        { id: Guid
+          apelido: string
+          nome: string
+          nascimento: DateOnly
+          stack: string }
+
+    module OutputPessoaDto =
+
+        let fromDatabaseDto (pessoa: DatabasePessoaDto) : OutputPessoaDto =
+            let id = pessoa.id
+            let nome = pessoa.nome
+            let apelido = pessoa.apelido
+            let stack = pessoa.stack
+            let nascimento = pessoa.nascimento |> DateOnly.FromDateTime
+
+            { id = id
+              apelido = apelido
+              nome = nome
+              nascimento = nascimento
               stack = stack.ToString() }
