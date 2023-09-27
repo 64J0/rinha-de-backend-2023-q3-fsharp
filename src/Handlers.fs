@@ -21,7 +21,9 @@ let createPessoaHandler () =
 
             match domainPessoa with
             | Ok pessoa ->
-                let databasePessoa = Dto.DatabasePessoaDto.fromDomain pessoa
+                let databasePessoa =
+                    Dto.DatabasePessoaDto.fromDomain (serializer.SerializeToString) (pessoa)
+
                 let! result = Repository.insertPessoa conn databasePessoa
 
                 ctx.SetStatusCode 201
@@ -42,7 +44,10 @@ let searchPessoasByTHandler () =
                 let serializer = ctx.GetJsonSerializer()
 
                 let! (databasePessoas: Generic.IEnumerable<Dto.DatabasePessoaDto>) = Repository.searchPessoasByT conn t
-                let outputPessoas = databasePessoas |> Seq.map Dto.OutputPessoaDto.fromDatabaseDto
+
+                let outputPessoas =
+                    databasePessoas
+                    |> Seq.map (Dto.OutputPessoaDto.fromDatabaseDto serializer.Deserialize)
 
                 let serializedPessoas = serializer.SerializeToString outputPessoas
 
@@ -65,7 +70,9 @@ let searchPessoaByIdHandler (input: string) =
             let! (databasePessoas: Generic.IEnumerable<Dto.DatabasePessoaDto>) =
                 Repository.searchPessoaById conn parsedId
 
-            let outputPessoas = databasePessoas |> Seq.map Dto.OutputPessoaDto.fromDatabaseDto
+            let outputPessoas =
+                databasePessoas
+                |> Seq.map (Dto.OutputPessoaDto.fromDatabaseDto serializer.Deserialize)
 
             let firstPessoa = Seq.tryHead outputPessoas
 

@@ -90,7 +90,7 @@ module Dto =
 
     module DatabasePessoaDto =
 
-        let fromDomain (pessoa: Domain.Pessoa) : DatabasePessoaDto =
+        let fromDomain (serializeToString: string list -> string) (pessoa: Domain.Pessoa) : DatabasePessoaDto =
             let id = pessoa.Id
             let nome = pessoa.Nome |> Domain.ValidNome.value
             let apelido = pessoa.Apelido |> Domain.ValidApelido.value
@@ -101,26 +101,29 @@ module Dto =
               apelido = apelido
               nome = nome
               nascimento = nascimento
-              stack = stack.ToString() }
+              stack = (serializeToString stack) }
 
     type OutputPessoaDto =
         { id: Guid
           apelido: string
           nome: string
           nascimento: DateOnly
-          stack: string }
+          stack: string array }
 
     module OutputPessoaDto =
 
-        let fromDatabaseDto (pessoa: DatabasePessoaDto) : OutputPessoaDto =
+        let fromDatabaseDto
+            (deserializeFromString: string -> string seq)
+            (pessoa: DatabasePessoaDto)
+            : OutputPessoaDto =
             let id = pessoa.id
             let nome = pessoa.nome
             let apelido = pessoa.apelido
-            let stack = pessoa.stack
+            let stack = pessoa.stack |> deserializeFromString |> Seq.toArray
             let nascimento = pessoa.nascimento |> DateOnly.FromDateTime
 
             { id = id
               apelido = apelido
               nome = nome
               nascimento = nascimento
-              stack = stack.ToString() }
+              stack = stack }
