@@ -2,8 +2,8 @@ module Rinha.Handlers
 
 open System
 open System.Data
-open System.Collections
 open Microsoft.AspNetCore.Http
+open Microsoft.Extensions.Logging
 open Giraffe
 
 open Rinha
@@ -12,7 +12,10 @@ let createPessoaHandler () =
     fun (next: HttpFunc) (ctx: HttpContext) ->
         task {
             let conn: IDbConnection = Database.getDbConnection ()
-            let serializer = ctx.GetJsonSerializer()
+            let logger: ILogger = ctx.GetLogger()
+            let serializer: Json.ISerializer = ctx.GetJsonSerializer()
+
+            use _ = logger.BeginScope("CreatePessoaHandler")
 
             let! input = ctx.ReadBodyBufferedFromRequestAsync()
             let inputPessoa = serializer.Deserialize<Dto.InputPessoaDto> input
@@ -24,10 +27,15 @@ let createPessoaHandler () =
                 let databasePessoa =
                     Dto.DatabasePessoaDto.fromDomain (serializer.SerializeToString) (pessoa)
 
-                let! result = Repository.insertPessoa conn databasePessoa
+                let! databaseResult = Repository.insertPessoa logger conn databasePessoa
 
-                ctx.SetStatusCode 201
-                return! text $"Pessoa inserted, return code {result}" next ctx
+                match databaseResult with
+                | Ok result ->
+                    ctx.SetStatusCode 201
+                    return! text $"Pessoa inserted, return code {result}" next ctx
+                | Error err ->
+                    ctx.SetStatusCode 500
+                    return! text err next ctx
             | Error err ->
                 ctx.SetStatusCode 422
                 return! text $"Error when inserting pessoa: {err}" next ctx
@@ -41,18 +49,25 @@ let searchPessoasByTHandler () =
             match term with
             | Some t ->
                 let conn: IDbConnection = Database.getDbConnection ()
-                let serializer = ctx.GetJsonSerializer()
+                let logger: ILogger = ctx.GetLogger()
+                let serializer: Json.ISerializer = ctx.GetJsonSerializer()
 
-                let! (databasePessoas: Generic.IEnumerable<Dto.DatabasePessoaDto>) = Repository.searchPessoasByT conn t
+                use _ = logger.BeginScope("SearchPessoasByTHandler")
 
-                let outputPessoas =
-                    databasePessoas
-                    |> Seq.map (Dto.OutputPessoaDto.fromDatabaseDto serializer.Deserialize)
+                let! databasePessoas = Repository.searchPessoasByT logger conn t
 
-                let serializedPessoas = serializer.SerializeToString outputPessoas
+                match databasePessoas with
+                | Ok pessoas ->
+                    let outputPessoas =
+                        pessoas |> Seq.map (Dto.OutputPessoaDto.fromDatabaseDto serializer.Deserialize)
 
-                ctx.SetStatusCode 200
-                return! text serializedPessoas next ctx
+                    let serializedPessoas = serializer.SerializeToString outputPessoas
+
+                    ctx.SetStatusCode 200
+                    return! text serializedPessoas next ctx
+                | Error err ->
+                    ctx.SetStatusCode 500
+                    return! text err next ctx
             | None ->
                 ctx.SetStatusCode 400
                 return! text "Please inform 't'" next ctx
@@ -63,39 +78,53 @@ let searchPessoaByIdHandler (input: string) =
         task {
             let id = input
             // TODO add validation
-            let parsedId = Guid.Parse id
+            let parsedId: Guid = Guid.Parse id
             let conn: IDbConnection = Database.getDbConnection ()
-            let serializer = ctx.GetJsonSerializer()
+            let logger: ILogger = ctx.GetLogger()
+            let serializer: Json.ISerializer = ctx.GetJsonSerializer()
 
-            let! (databasePessoas: Generic.IEnumerable<Dto.DatabasePessoaDto>) =
-                Repository.searchPessoaById conn parsedId
+            use _ = logger.BeginScope("SearchPessoaByIdHandler")
 
-            let outputPessoas =
-                databasePessoas
-                |> Seq.map (Dto.OutputPessoaDto.fromDatabaseDto serializer.Deserialize)
+            let! databasePessoas = Repository.searchPessoaById logger conn parsedId
 
-            let firstPessoa = Seq.tryHead outputPessoas
+            match databasePessoas with
+            | Ok pessoas ->
+                let outputPessoas =
+                    pessoas |> Seq.map (Dto.OutputPessoaDto.fromDatabaseDto serializer.Deserialize)
 
-            match firstPessoa with
-            | Some p ->
-                let serializedPessoa = serializer.SerializeToString p
+                let firstPessoa = Seq.tryHead outputPessoas
 
-                ctx.SetStatusCode 200
-                return! text serializedPessoa next ctx
-            | None ->
-                ctx.SetStatusCode 404
-                return! text "Not Found" next ctx
+                match firstPessoa with
+                | Some p ->
+                    let serializedPessoa = serializer.SerializeToString p
+
+                    ctx.SetStatusCode 200
+                    return! text serializedPessoa next ctx
+                | None ->
+                    ctx.SetStatusCode 404
+                    return! text "Not Found" next ctx
+            | Error err ->
+                ctx.SetStatusCode 500
+                return! text err next ctx
         }
 
 let countPessoasHandler () =
     fun (next: HttpFunc) (ctx: HttpContext) ->
         task {
             let conn: IDbConnection = Database.getDbConnection ()
+            let logger: ILogger = ctx.GetLogger()
 
-            let! (result: Generic.IEnumerable<{| Value: int64 |}>) = Repository.countPessoas conn
+            use _ = logger.BeginScope("CountPessoasHandler")
 
-            let value = Seq.head result
+            let! databaseResult = Repository.countPessoas logger conn
 
-            ctx.SetStatusCode 200
-            return! text (sprintf "%i" value.Value) next ctx
+            match databaseResult with
+            | Ok result ->
+                let value = Seq.head result
+
+                ctx.SetStatusCode 200
+                return! text (sprintf "%i" value.Value) next ctx
+            | Error err ->
+                ctx.SetStatusCode 500
+                return! text err next ctx
         }
