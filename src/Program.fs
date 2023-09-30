@@ -1,4 +1,5 @@
 ﻿open System
+open System.Text.Json.Serialization
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
 open Microsoft.Extensions.Logging
@@ -7,7 +8,6 @@ open Microsoft.Extensions.Hosting
 open Microsoft.Extensions.DependencyInjection
 
 open Giraffe
-open System.Text.Json.Serialization
 open NATS.Client.Core
 open NATS.Client.Hosting
 

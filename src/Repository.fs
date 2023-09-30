@@ -5,6 +5,7 @@ open System.Data
 open System.Threading.Tasks
 open System.Collections.Generic
 open Microsoft.Extensions.Logging
+
 open Dapper.FSharp.PostgreSQL
 
 open Rinha

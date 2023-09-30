@@ -4,12 +4,29 @@ open System
 open System.Data
 open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.Logging
+
+open FsToolkit.ErrorHandling
 open Giraffe
 
 open Rinha
 
 let createPessoaHandler () =
     fun (next: HttpFunc) (ctx: HttpContext) ->
+        let execute
+            (logger: ILogger)
+            (conn: IDbConnection)
+            (serializer: Json.ISerializer)
+            (inputPessoa: Dto.InputPessoaDto)
+            =
+            asyncResult {
+                let! domainPessoa = Dto.InputPessoaDto.toDomain inputPessoa
+
+                let databasePessoa =
+                    Dto.DatabasePessoaDto.fromDomain (serializer.SerializeToString) (domainPessoa)
+
+                return! Repository.insertPessoa logger conn databasePessoa
+            }
+
         task {
             let conn: IDbConnection = Database.getDbConnection ()
             let logger: ILogger = ctx.GetLogger()
@@ -20,22 +37,12 @@ let createPessoaHandler () =
             let! input = ctx.ReadBodyBufferedFromRequestAsync()
             let inputPessoa = serializer.Deserialize<Dto.InputPessoaDto> input
 
-            let domainPessoa = Dto.InputPessoaDto.toDomain inputPessoa
+            let! result = execute logger conn serializer inputPessoa
 
-            match domainPessoa with
-            | Ok pessoa ->
-                let databasePessoa =
-                    Dto.DatabasePessoaDto.fromDomain (serializer.SerializeToString) (pessoa)
-
-                let! databaseResult = Repository.insertPessoa logger conn databasePessoa
-
-                match databaseResult with
-                | Ok result ->
-                    ctx.SetStatusCode 201
-                    return! text $"Pessoa inserted, return code {result}" next ctx
-                | Error err ->
-                    ctx.SetStatusCode 500
-                    return! text err next ctx
+            match result with
+            | Ok dbVal ->
+                ctx.SetStatusCode 201
+                return! text $"Pessoa inserted, return code {dbVal}" next ctx
             | Error err ->
                 ctx.SetStatusCode 422
                 return! text $"Error when inserting pessoa: {err}" next ctx
