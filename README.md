@@ -19,8 +19,9 @@ As instruções originais do desafio podem ser encontradas [aqui](https://github
 
 ```bash
 cd participacao/
-docker-compose up -d db
+docker-compose up -d db nats
 
 export DB_CONNECTION_STRING="Host=localhost;Username=admin;Password=123;Database=rinha;Connection Pruning Interval=1;Connection Idle Lifetime=2;Enlist=false;No Reset On Close=true"
+export NATS_URL="nats:4222"
 # start the server on debug mode to check the values
 ```
