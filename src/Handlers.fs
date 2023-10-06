@@ -31,7 +31,7 @@ let createPessoaHandler () =
         use _ = logger.BeginScope("CreatePessoaHandler")
 
         let checkDuplicatedApelido
-            (apelidoPessoas: ConcurrentDictionary<string, byte>)
+            (apelidoPessoas: IApelidoPessoas)
             (inputPessoaResult: Result<Dto.InputPessoaDto, string>)
             : Result<Dto.InputPessoaDto, string> =
             match inputPessoaResult with
