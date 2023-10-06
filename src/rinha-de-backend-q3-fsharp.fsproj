@@ -12,6 +12,7 @@
     <Compile Include="Model.fs" />
     <Compile Include="Repository.fs" />
     <Compile Include="Handlers.fs" />
+    <Compile Include="Middlewares.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

@@ -2,6 +2,8 @@ module Rinha.Handlers
 
 open System
 open System.Data
+open System.Threading.Channels
+open System.Collections.Concurrent
 open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.Logging
 
@@ -10,8 +12,23 @@ open Giraffe
 
 open Rinha
 
+// TODO use more descriptive names
+// Those are services added to the server as Singletons
+type IBuscaMap = unit -> ConcurrentDictionary<string, Dto.OutputPessoaDto>
+type IPessoasById = unit -> ConcurrentDictionary<Guid, Dto.OutputPessoaDto>
+type IChannelPessoa = unit -> Channel<Dto.OutputPessoaDto>
+type IApelidoPessoas = unit -> ConcurrentDictionary<string, byte>
+
 let createPessoaHandler () =
     fun (next: HttpFunc) (ctx: HttpContext) ->
+        let conn: IDbConnection = Database.getDbConnection ()
+        let logger: ILogger = ctx.GetLogger()
+        let serializer: Json.ISerializer = ctx.GetJsonSerializer()
+        let apelidoPessoasService: IApelidoPessoas = ctx.GetService<IApelidoPessoas>()
+        let apelidoPessoas = apelidoPessoasService ()
+
+        use _ = logger.BeginScope("CreatePessoaHandler")
+
         let execute
             (logger: ILogger)
             (conn: IDbConnection)
@@ -19,6 +36,14 @@ let createPessoaHandler () =
             (inputPessoa: Dto.InputPessoaDto)
             =
             asyncResult {
+                // TODO fix
+                // let duplicatedApelido = apelidoPessoas.TryAdd(inputPessoa.apelido, byte 0)
+
+                // do!
+                //     match duplicatedApelido with
+                //     | true -> Ok()
+                //     | false -> Error "Duplicated apelido"
+
                 let! domainPessoa = Dto.InputPessoaDto.toDomain inputPessoa
 
                 let databasePessoa =
@@ -28,12 +53,6 @@ let createPessoaHandler () =
             }
 
         task {
-            let conn: IDbConnection = Database.getDbConnection ()
-            let logger: ILogger = ctx.GetLogger()
-            let serializer: Json.ISerializer = ctx.GetJsonSerializer()
-
-            use _ = logger.BeginScope("CreatePessoaHandler")
-
             let! input = ctx.ReadBodyBufferedFromRequestAsync()
             let inputPessoa = serializer.Deserialize<Dto.InputPessoaDto> input
 
