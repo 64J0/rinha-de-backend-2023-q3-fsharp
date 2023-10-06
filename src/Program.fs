@@ -78,19 +78,18 @@ let configureServices (services: IServiceCollection) =
     |> ignore
 
     let getBuscaMap: Handlers.IBuscaMap =
-        fun () -> new ConcurrentDictionary<string, Dto.OutputPessoaDto>()
+        new ConcurrentDictionary<string, Dto.OutputPessoaDto>()
 
     let getPessoasById: Handlers.IPessoasById =
-        fun () -> new ConcurrentDictionary<Guid, Dto.OutputPessoaDto>()
+        new ConcurrentDictionary<Guid, Dto.OutputPessoaDto>()
 
     let getApelidoPessoas: Handlers.IApelidoPessoas =
-        fun () -> new ConcurrentDictionary<string, byte>()
+        new ConcurrentDictionary<string, byte>()
 
     let getChannelPessoa: Handlers.IChannelPessoa =
-        fun () ->
-            let options = new UnboundedChannelOptions()
-            options.SingleReader <- true
-            Channel.CreateUnbounded<Dto.OutputPessoaDto>(options)
+        let options = new UnboundedChannelOptions()
+        options.SingleReader <- true
+        Channel.CreateUnbounded<Dto.OutputPessoaDto>(options)
 
     // https://www.compositional-it.com/news-blog/dependency-injection-with-asp-net-and-f/
     // https://giraffe.wiki/docs#dependency-management

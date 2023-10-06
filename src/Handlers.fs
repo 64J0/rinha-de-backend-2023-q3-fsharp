@@ -1,7 +1,9 @@
 module Rinha.Handlers
 
 open System
+open System.Net
 open System.Data
+open System.Threading.Tasks
 open System.Threading.Channels
 open System.Collections.Concurrent
 open Microsoft.AspNetCore.Http
@@ -14,57 +16,86 @@ open Rinha
 
 // TODO use more descriptive names
 // Those are services added to the server as Singletons
-type IBuscaMap = unit -> ConcurrentDictionary<string, Dto.OutputPessoaDto>
-type IPessoasById = unit -> ConcurrentDictionary<Guid, Dto.OutputPessoaDto>
-type IChannelPessoa = unit -> Channel<Dto.OutputPessoaDto>
-type IApelidoPessoas = unit -> ConcurrentDictionary<string, byte>
+type IBuscaMap = ConcurrentDictionary<string, Dto.OutputPessoaDto>
+type IPessoasById = ConcurrentDictionary<Guid, Dto.OutputPessoaDto>
+type IChannelPessoa = Channel<Dto.OutputPessoaDto>
+type IApelidoPessoas = ConcurrentDictionary<string, byte>
 
 let createPessoaHandler () =
     fun (next: HttpFunc) (ctx: HttpContext) ->
         let conn: IDbConnection = Database.getDbConnection ()
         let logger: ILogger = ctx.GetLogger()
         let serializer: Json.ISerializer = ctx.GetJsonSerializer()
-        let apelidoPessoasService: IApelidoPessoas = ctx.GetService<IApelidoPessoas>()
-        let apelidoPessoas = apelidoPessoasService ()
+        let apelidoPessoas: IApelidoPessoas = ctx.GetService<IApelidoPessoas>()
 
         use _ = logger.BeginScope("CreatePessoaHandler")
 
-        let execute
+        let checkDuplicatedApelido
+            (apelidoPessoas: ConcurrentDictionary<string, byte>)
+            (inputPessoaResult: Result<Dto.InputPessoaDto, string>)
+            : Result<Dto.InputPessoaDto, string> =
+            match inputPessoaResult with
+            | Ok inputPessoa ->
+                match apelidoPessoas.TryAdd(inputPessoa.apelido, byte 0) with
+                | true -> Ok inputPessoa
+                | false ->
+                    logger.LogError "[ERROR] checkDuplicatedApelido"
+                    ctx.SetStatusCode(int HttpStatusCode.BadRequest)
+                    Error "Duplicated apelido"
+            | Error err -> Error err
+
+        let createDomainPessoa (inputPessoaResult: Result<Dto.InputPessoaDto, string>) : Result<Domain.Pessoa, string> =
+            match inputPessoaResult with
+            | Ok inputPessoa ->
+                let domainPessoaResult = Dto.InputPessoaDto.toDomain inputPessoa
+
+                match domainPessoaResult with
+                | Ok domainPessoa -> Ok domainPessoa
+                | Error err ->
+                    logger.LogError(sprintf "[ERROR] createDomainPessoa: %A" err)
+                    ctx.SetStatusCode(int HttpStatusCode.UnprocessableEntity)
+                    Error "Domain error"
+            | Error err -> Error err
+
+
+        let storePessoaOnDatabase
             (logger: ILogger)
             (conn: IDbConnection)
             (serializer: Json.ISerializer)
-            (inputPessoa: Dto.InputPessoaDto)
-            =
-            asyncResult {
-                // TODO fix
-                // let duplicatedApelido = apelidoPessoas.TryAdd(inputPessoa.apelido, byte 0)
+            (domainPessoaResult: Result<Domain.Pessoa, string>)
+            : Task<Result<int, string>> =
+            task {
+                match domainPessoaResult with
+                | Ok domainPessoa ->
+                    let databasePessoa =
+                        Dto.DatabasePessoaDto.fromDomain (serializer.SerializeToString) (domainPessoa)
 
-                // do!
-                //     match duplicatedApelido with
-                //     | true -> Ok()
-                //     | false -> Error "Duplicated apelido"
+                    let! databaseResult = Repository.insertPessoa logger conn databasePessoa
 
-                let! domainPessoa = Dto.InputPessoaDto.toDomain inputPessoa
-
-                let databasePessoa =
-                    Dto.DatabasePessoaDto.fromDomain (serializer.SerializeToString) (domainPessoa)
-
-                return! Repository.insertPessoa logger conn databasePessoa
+                    match databaseResult with
+                    | Ok dbVal -> return Ok dbVal
+                    | Error err ->
+                        logger.LogError(sprintf "[ERROR] storePessoaOnDatabase: %A" err)
+                        ctx.SetStatusCode(int HttpStatusCode.InternalServerError)
+                        return Error "Error when storing Pessoa on database"
+                | Error err -> return Error err
             }
 
         task {
             let! input = ctx.ReadBodyBufferedFromRequestAsync()
             let inputPessoa = serializer.Deserialize<Dto.InputPessoaDto> input
 
-            let! result = execute logger conn serializer inputPessoa
+            let! result =
+                Ok inputPessoa
+                |> checkDuplicatedApelido apelidoPessoas
+                |> createDomainPessoa
+                |> storePessoaOnDatabase logger conn serializer
 
             match result with
             | Ok dbVal ->
-                ctx.SetStatusCode 201
+                ctx.SetStatusCode(int HttpStatusCode.Created)
                 return! text $"Pessoa inserted, return code {dbVal}" next ctx
-            | Error err ->
-                ctx.SetStatusCode 422
-                return! text $"Error when inserting pessoa: {err}" next ctx
+            | Error err -> return! text err next ctx
         }
 
 let searchPessoasByTHandler () =
