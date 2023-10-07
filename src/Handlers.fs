@@ -290,21 +290,21 @@ let searchPessoaByIdHandler (input: string) =
 
 let countPessoasHandler () =
     fun (next: HttpFunc) (ctx: HttpContext) ->
+        let conn: IDbConnection = Database.getDbConnection ()
+        let logger: ILogger = ctx.GetLogger()
+
+        use _ = logger.BeginScope("CountPessoasHandler")
+
         task {
-            let conn: IDbConnection = Database.getDbConnection ()
-            let logger: ILogger = ctx.GetLogger()
-
-            use _ = logger.BeginScope("CountPessoasHandler")
-
             let! databaseResult = Repository.countPessoas logger conn
 
             match databaseResult with
             | Ok result ->
                 let value = Seq.head result
 
-                ctx.SetStatusCode 200
+                ctx.SetStatusCode(int HttpStatusCode.OK)
                 return! text (sprintf "%i" value.Value) next ctx
             | Error err ->
-                ctx.SetStatusCode 500
+                ctx.SetStatusCode(int HttpStatusCode.InternalServerError)
                 return! text err next ctx
         }
