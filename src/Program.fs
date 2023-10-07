@@ -19,13 +19,26 @@ let errorHandler (ex: Exception) (logger: ILogger) =
     logger.LogError(EventId(), ex, "An unhandled exception has occurred while executing the request.")
     clearResponse >=> ServerErrors.INTERNAL_ERROR $"Error: {ex.Message}"
 
+let cacheOutputForOneMinuteVaryByQuery =
+    responseCaching (Public(TimeSpan.FromSeconds(float 60))) (None) (Some [| "t" |])
+
+let cacheOutputForOneSecond = publicResponseCaching 1 None
+
 let webApp =
     choose
         [ GET >=> route "/ping" >=> text "pong"
           POST >=> route "/pessoas" >=> Handlers.createPessoaHandler ()
+          // TODO add cache
+          // https://github.com/giraffe-fsharp/Giraffe/issues/559
           GET >=> routef "/pessoas/%s" Handlers.searchPessoaByIdHandler
-          GET >=> route "/pessoas" >=> Handlers.searchPessoasByTHandler ()
-          GET >=> route "/contagem-pessoas" >=> Handlers.countPessoasHandler ()
+          GET
+          >=> route "/pessoas"
+          >=> cacheOutputForOneMinuteVaryByQuery
+          >=> Handlers.searchPessoasByTHandler ()
+          GET
+          >=> route "/contagem-pessoas"
+          >=> cacheOutputForOneSecond
+          >=> Handlers.countPessoasHandler ()
           setStatusCode 404 >=> text "Not found" ]
 
 let configureApp (app: IApplicationBuilder) =
