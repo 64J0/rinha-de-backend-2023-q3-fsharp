@@ -29,7 +29,7 @@ let webApp =
           setStatusCode 404 >=> text "Not found" ]
 
 let configureApp (app: IApplicationBuilder) =
-    app.UseGiraffeErrorHandler(errorHandler).UseGiraffe webApp
+    app.UseOutputCache().UseGiraffeErrorHandler(errorHandler).UseGiraffe webApp
 
 let configureServices (services: IServiceCollection) =
     let jsonOptions = JsonFSharpOptions.FSharpLuLike().ToJsonSerializerOptions()
@@ -47,7 +47,7 @@ let configureServices (services: IServiceCollection) =
             let natsOptions = NatsOpts.Default
 
             NatsOpts(
-                Environment.GetEnvironmentVariable("NATS_URL"),
+                Rinha.Environment.NATS_URL,
                 natsOptions.Name,
                 natsOptions.Echo,
                 natsOptions.Verbose,
@@ -99,7 +99,10 @@ let configureServices (services: IServiceCollection) =
         .AddSingleton<Handlers.IPessoasById>(getPessoasById)
         .AddSingleton<Handlers.IApelidoPessoas>(getApelidoPessoas)
         .AddSingleton<Handlers.IChannelPessoa>(getChannelPessoa)
+        .AddSingleton<Handlers.INatsOwnChannel>(Rinha.Environment.NATS_OWN_CHANNEL)
     |> ignore
+
+    services.AddOutputCache() |> ignore
 
 let configureLogger (logger: ILoggingBuilder) : unit =
     let consoleAction =

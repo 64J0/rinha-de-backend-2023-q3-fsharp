@@ -4,7 +4,6 @@
 
 module Rinha.Database
 
-open System
 open System.Data
 open Dapper.FSharp
 open Npgsql
@@ -13,5 +12,5 @@ open Npgsql
 PostgreSQL.OptionTypes.register ()
 
 let getDbConnection () : IDbConnection =
-    let connString: string = Environment.GetEnvironmentVariable "DB_CONNECTION_STRING"
+    let connString: string = Rinha.Environment.DB_CONN
     new NpgsqlConnection(connString) :> IDbConnection
