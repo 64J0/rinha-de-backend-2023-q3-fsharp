@@ -81,7 +81,7 @@ let configureServices (services: IServiceCollection) =
         new ConcurrentDictionary<string, Dto.OutputPessoaDto>()
 
     let getPessoasById: Handlers.IPessoasById =
-        new ConcurrentDictionary<Guid, Dto.OutputPessoaDto>()
+        new ConcurrentDictionary<Guid, Dto.DatabasePessoaDto>()
 
     let getApelidoPessoas: Handlers.IApelidoPessoas =
         new ConcurrentDictionary<string, byte>()
@@ -89,7 +89,7 @@ let configureServices (services: IServiceCollection) =
     let getChannelPessoa: Handlers.IChannelPessoa =
         let options = new UnboundedChannelOptions()
         options.SingleReader <- true
-        Channel.CreateUnbounded<Dto.OutputPessoaDto>(options)
+        Channel.CreateUnbounded<Dto.DatabasePessoaDto>(options)
 
     // https://www.compositional-it.com/news-blog/dependency-injection-with-asp-net-and-f/
     // https://giraffe.wiki/docs#dependency-management

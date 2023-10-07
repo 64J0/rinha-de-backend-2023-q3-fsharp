@@ -10,6 +10,7 @@ open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.Logging
 
 open FsToolkit.ErrorHandling
+open NATS.Client.Core
 open Giraffe
 
 open Rinha
@@ -17,9 +18,10 @@ open Rinha
 // TODO use more descriptive names
 // Those are services added to the server as Singletons
 type IBuscaMap = ConcurrentDictionary<string, Dto.OutputPessoaDto>
-type IPessoasById = ConcurrentDictionary<Guid, Dto.OutputPessoaDto>
-type IChannelPessoa = Channel<Dto.OutputPessoaDto>
+type IPessoasById = ConcurrentDictionary<Guid, Dto.DatabasePessoaDto>
+type IChannelPessoa = Channel<Dto.DatabasePessoaDto>
 type IApelidoPessoas = ConcurrentDictionary<string, byte>
+type INatsOwnChannel = string
 
 let createPessoaHandler () =
     fun (next: HttpFunc) (ctx: HttpContext) ->
@@ -27,6 +29,9 @@ let createPessoaHandler () =
         let logger: ILogger = ctx.GetLogger()
         let serializer: Json.ISerializer = ctx.GetJsonSerializer()
         let apelidoPessoas: IApelidoPessoas = ctx.GetService<IApelidoPessoas>()
+        let natsConnection: INatsConnection = ctx.GetService<INatsConnection>()
+        let channel: IChannelPessoa = ctx.GetService<IChannelPessoa>()
+        let pessoasById: IPessoasById = ctx.GetService<IPessoasById>()
 
         use _ = logger.BeginScope("CreatePessoaHandler")
 
@@ -57,20 +62,77 @@ let createPessoaHandler () =
                     Error "Domain error"
             | Error err -> Error err
 
+        let getDatabasePessoaDto
+            (serializer: Json.ISerializer)
+            (domainPessoaResult: Result<Domain.Pessoa, string>)
+            : Result<Dto.DatabasePessoaDto, string> =
+            match domainPessoaResult with
+            | Ok domainPessoa ->
+                let databasePessoa =
+                    Dto.DatabasePessoaDto.fromDomain (serializer.SerializeToString) (domainPessoa)
+
+                Ok databasePessoa
+            | Error err -> Error err
+
+        let storePessoaOnNatsCache
+            (natsConnection: INatsConnection)
+            (databasePessoaDtoResult: Result<Dto.DatabasePessoaDto, string>)
+            : Task<Result<Dto.DatabasePessoaDto, string>> =
+            task {
+                match databasePessoaDtoResult with
+                | Ok databasePessoaDto ->
+                    // TODO improve error handling
+                    do! natsConnection.PublishAsync(Rinha.Environment.NATS_DESTINATION, databasePessoaDto)
+
+                    return Ok databasePessoaDto
+                | Error err -> return Error err
+            }
+
+        let writeToChannel
+            (channel: IChannelPessoa)
+            (databasePessoaDtoResultTask: Task<Result<Dto.DatabasePessoaDto, string>>)
+            : Task<Result<Dto.DatabasePessoaDto, string>> =
+            task {
+                let! databasePessoaDtoResult = databasePessoaDtoResultTask
+
+                match databasePessoaDtoResult with
+                | Ok databasePessoaDto ->
+                    // TODO improve error handling
+                    do! channel.Writer.WriteAsync(databasePessoaDto)
+
+                    return Ok databasePessoaDto
+                | Error err -> return Error err
+            }
+
+        let storeOnPessoasById
+            (pessoasById: IPessoasById)
+            (databasePessoaDtoResultTask: Task<Result<Dto.DatabasePessoaDto, string>>)
+            : Task<Result<Dto.DatabasePessoaDto, string>> =
+            task {
+                let! databasePessoaDtoResult = databasePessoaDtoResultTask
+
+                match databasePessoaDtoResult with
+                | Ok databasePessoaDto ->
+                    match pessoasById.TryAdd(databasePessoaDto.id, databasePessoaDto) with
+                    | true -> return Ok databasePessoaDto
+                    | false ->
+                        logger.LogError "[ERROR] storeOnPessoasById"
+                        ctx.SetStatusCode(int HttpStatusCode.BadRequest)
+                        return Error "Failed to store on ConcurrentDictionary pessoasById"
+                | Error err -> return Error err
+            }
 
         let storePessoaOnDatabase
             (logger: ILogger)
             (conn: IDbConnection)
-            (serializer: Json.ISerializer)
-            (domainPessoaResult: Result<Domain.Pessoa, string>)
+            (databasePessoaDtoResultTask: Task<Result<Dto.DatabasePessoaDto, string>>)
             : Task<Result<int, string>> =
             task {
-                match domainPessoaResult with
-                | Ok domainPessoa ->
-                    let databasePessoa =
-                        Dto.DatabasePessoaDto.fromDomain (serializer.SerializeToString) (domainPessoa)
+                let! databasePessoaDtoResult = databasePessoaDtoResultTask
 
-                    let! databaseResult = Repository.insertPessoa logger conn databasePessoa
+                match databasePessoaDtoResult with
+                | Ok databasePessoaDto ->
+                    let! databaseResult = Repository.insertPessoa logger conn databasePessoaDto
 
                     match databaseResult with
                     | Ok dbVal -> return Ok dbVal
@@ -89,7 +151,11 @@ let createPessoaHandler () =
                 Ok inputPessoa
                 |> checkDuplicatedApelido apelidoPessoas
                 |> createDomainPessoa
-                |> storePessoaOnDatabase logger conn serializer
+                |> getDatabasePessoaDto serializer
+                |> storePessoaOnNatsCache natsConnection
+                |> writeToChannel channel
+                |> storeOnPessoasById pessoasById
+                |> storePessoaOnDatabase logger conn
 
             match result with
             | Ok dbVal ->
