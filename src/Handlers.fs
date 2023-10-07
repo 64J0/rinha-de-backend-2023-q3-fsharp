@@ -166,17 +166,17 @@ let createPessoaHandler () =
 
 let searchPessoasByTHandler () =
     fun (next: HttpFunc) (ctx: HttpContext) ->
+        let conn: IDbConnection = Database.getDbConnection ()
+        let logger: ILogger = ctx.GetLogger()
+        let serializer: Json.ISerializer = ctx.GetJsonSerializer()
+
+        use _ = logger.BeginScope("SearchPessoasByTHandler")
+
         task {
             let term = ctx.TryGetQueryStringValue "t"
 
             match term with
             | Some t ->
-                let conn: IDbConnection = Database.getDbConnection ()
-                let logger: ILogger = ctx.GetLogger()
-                let serializer: Json.ISerializer = ctx.GetJsonSerializer()
-
-                use _ = logger.BeginScope("SearchPessoasByTHandler")
-
                 let! databasePessoas = Repository.searchPessoasByT logger conn t
 
                 match databasePessoas with
@@ -198,37 +198,94 @@ let searchPessoasByTHandler () =
 
 let searchPessoaByIdHandler (input: string) =
     fun (next: HttpFunc) (ctx: HttpContext) ->
+        let conn: IDbConnection = Database.getDbConnection ()
+        let logger: ILogger = ctx.GetLogger()
+        let serializer: Json.ISerializer = ctx.GetJsonSerializer()
+        let pessoasById: IPessoasById = ctx.GetService<IPessoasById>()
+
+        use _ = logger.BeginScope("SearchPessoaByIdHandler")
+
+        let tryParseToGuid (id: string) : Option<Guid> =
+            match Guid.TryParse id with
+            | true, guid -> Some guid
+            | false, _ -> None
+
+        let tryReadPessoaFromCache
+            (cache: IPessoasById)
+            (guid: Guid)
+            (pessoa: Task<Option<Dto.DatabasePessoaDto>>)
+            : Task<Option<Dto.DatabasePessoaDto>> =
+            task {
+                let! pessoa' = pessoa
+
+                match pessoa' with
+                | Some p -> return Some p
+                | None ->
+                    match cache.TryGetValue guid with
+                    | true, p' -> return Some p'
+                    | false, _ -> return None
+            }
+
+        let waitTenSeconds (pessoa: Task<Option<Dto.DatabasePessoaDto>>) : Task<Option<Dto.DatabasePessoaDto>> =
+            task {
+                let! pessoa' = pessoa
+
+                match pessoa' with
+                | Some p -> return Some p
+                | None ->
+                    do! Task.Delay 10
+                    return None
+            }
+
         task {
             let id = input
-            // TODO add validation
-            let parsedId: Guid = Guid.Parse id
-            let conn: IDbConnection = Database.getDbConnection ()
-            let logger: ILogger = ctx.GetLogger()
-            let serializer: Json.ISerializer = ctx.GetJsonSerializer()
+            let parsedGuid = tryParseToGuid id
 
-            use _ = logger.BeginScope("SearchPessoaByIdHandler")
+            // TODO improve code to avoid nested structures
+            match parsedGuid with
+            | Some guid ->
+                let! result =
+                    task { return None }
+                    |> tryReadPessoaFromCache pessoasById guid
+                    |> waitTenSeconds
+                    |> tryReadPessoaFromCache pessoasById guid
+                    |> waitTenSeconds
+                    |> tryReadPessoaFromCache pessoasById guid
 
-            let! databasePessoas = Repository.searchPessoaById logger conn parsedId
+                match result with
+                | Some pessoa ->
+                    let outputPessoa =
+                        pessoa |> Dto.OutputPessoaDto.fromDatabaseDto serializer.Deserialize
 
-            match databasePessoas with
-            | Ok pessoas ->
-                let outputPessoas =
-                    pessoas |> Seq.map (Dto.OutputPessoaDto.fromDatabaseDto serializer.Deserialize)
+                    let serializedPessoa = serializer.SerializeToString outputPessoa
 
-                let firstPessoa = Seq.tryHead outputPessoas
-
-                match firstPessoa with
-                | Some p ->
-                    let serializedPessoa = serializer.SerializeToString p
-
-                    ctx.SetStatusCode 200
+                    ctx.SetStatusCode(int HttpStatusCode.OK)
                     return! text serializedPessoa next ctx
                 | None ->
-                    ctx.SetStatusCode 404
-                    return! text "Not Found" next ctx
-            | Error err ->
-                ctx.SetStatusCode 500
-                return! text err next ctx
+                    let! databasePessoas = Repository.searchPessoaById logger conn guid
+
+                    match databasePessoas with
+                    | Ok pessoas ->
+                        let outputPessoas =
+                            pessoas |> Seq.map (Dto.OutputPessoaDto.fromDatabaseDto serializer.Deserialize)
+
+                        let firstPessoa = Seq.tryHead outputPessoas
+
+                        match firstPessoa with
+                        | Some p ->
+                            let serializedPessoa = serializer.SerializeToString p
+
+                            ctx.SetStatusCode(int HttpStatusCode.OK)
+                            return! text serializedPessoa next ctx
+                        | None ->
+                            ctx.SetStatusCode(int HttpStatusCode.NotFound)
+                            return! text "Not Found" next ctx
+                    | Error err ->
+                        ctx.SetStatusCode(int HttpStatusCode.InternalServerError)
+                        return! text err next ctx
+            | None ->
+                ctx.SetStatusCode(int HttpStatusCode.BadRequest)
+                return! text "Invalid Guid!" next ctx
         }
 
 let countPessoasHandler () =
