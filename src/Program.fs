@@ -91,7 +91,7 @@ let configureServices (services: IServiceCollection) =
     |> ignore
 
     let getBuscaMap: Handlers.IBuscaMap =
-        new ConcurrentDictionary<string, Dto.OutputPessoaDto>()
+        new ConcurrentDictionary<string, Dto.DatabasePessoaDto>()
 
     let getPessoasById: Handlers.IPessoasById =
         new ConcurrentDictionary<Guid, Dto.DatabasePessoaDto>()

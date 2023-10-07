@@ -5,6 +5,7 @@ open System.Net
 open System.Data
 open System.Threading.Tasks
 open System.Threading.Channels
+open System.Collections.Generic
 open System.Collections.Concurrent
 open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.Logging
@@ -17,7 +18,7 @@ open Rinha
 
 // TODO use more descriptive names
 // Those are services added to the server as Singletons
-type IBuscaMap = ConcurrentDictionary<string, Dto.OutputPessoaDto>
+type IBuscaMap = ConcurrentDictionary<string, Dto.DatabasePessoaDto>
 type IPessoasById = ConcurrentDictionary<Guid, Dto.DatabasePessoaDto>
 type IChannelPessoa = Channel<Dto.DatabasePessoaDto>
 type IApelidoPessoas = ConcurrentDictionary<string, byte>
@@ -169,30 +170,61 @@ let searchPessoasByTHandler () =
         let conn: IDbConnection = Database.getDbConnection ()
         let logger: ILogger = ctx.GetLogger()
         let serializer: Json.ISerializer = ctx.GetJsonSerializer()
+        let buscaMap: IBuscaMap = ctx.GetService<IBuscaMap>()
 
         use _ = logger.BeginScope("SearchPessoasByTHandler")
 
+        let validateT (term: Option<string>) : Option<string> =
+            match term with
+            | Some t -> if (String.IsNullOrWhiteSpace t) then None else Some t
+            | None -> None
+
+        // https://learn.microsoft.com/en-us/dotnet/fsharp/language-reference/query-expressions
+        let getPessoasFromCache (buscaMap: IBuscaMap) (term: string) : IEnumerable<Dto.DatabasePessoaDto> =
+            query {
+                for p in buscaMap do
+                    where (p.Key.Contains(term))
+                    take 50
+                    select (p.Value)
+            }
+
+        // TODO improve code to avoid nested structures
         task {
-            let term = ctx.TryGetQueryStringValue "t"
+            let term = ctx.TryGetQueryStringValue "t" |> validateT
 
             match term with
             | Some t ->
-                let! databasePessoas = Repository.searchPessoasByT logger conn t
+                let pessoasFromCache = getPessoasFromCache buscaMap t
 
-                match databasePessoas with
-                | Ok pessoas ->
+                let pessoasFromCacheLength = Seq.length pessoasFromCache
+
+                match pessoasFromCacheLength > 0 with
+                | true ->
                     let outputPessoas =
-                        pessoas |> Seq.map (Dto.OutputPessoaDto.fromDatabaseDto serializer.Deserialize)
+                        pessoasFromCache
+                        |> Seq.map (Dto.OutputPessoaDto.fromDatabaseDto serializer.Deserialize)
 
                     let serializedPessoas = serializer.SerializeToString outputPessoas
 
-                    ctx.SetStatusCode 200
+                    ctx.SetStatusCode(int HttpStatusCode.OK)
                     return! text serializedPessoas next ctx
-                | Error err ->
-                    ctx.SetStatusCode 500
-                    return! text err next ctx
+                | false ->
+                    let! databasePessoas = Repository.searchPessoasByT logger conn t
+
+                    match databasePessoas with
+                    | Ok pessoas ->
+                        let outputPessoas =
+                            pessoas |> Seq.map (Dto.OutputPessoaDto.fromDatabaseDto serializer.Deserialize)
+
+                        let serializedPessoas = serializer.SerializeToString outputPessoas
+
+                        ctx.SetStatusCode(int HttpStatusCode.OK)
+                        return! text serializedPessoas next ctx
+                    | Error err ->
+                        ctx.SetStatusCode(int HttpStatusCode.InternalServerError)
+                        return! text err next ctx
             | None ->
-                ctx.SetStatusCode 400
+                ctx.SetStatusCode(int HttpStatusCode.BadRequest)
                 return! text "Please inform 't'" next ctx
         }
 
@@ -221,6 +253,8 @@ let searchPessoaByIdHandler (input: string) =
                 match pessoa' with
                 | Some p -> return Some p
                 | None ->
+                    // TODO incorrect usage?
+                    // http://www.fssnip.net/7Qr/2
                     match cache.TryGetValue guid with
                     | true, p' -> return Some p'
                     | false, _ -> return None
