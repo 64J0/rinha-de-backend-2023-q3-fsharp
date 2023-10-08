@@ -1,7 +1,6 @@
 module Rinha.Repository
 
 open System
-open System.Data
 open System.Threading.Tasks
 open System.Collections.Generic
 open Microsoft.Extensions.Logging
@@ -9,13 +8,18 @@ open Microsoft.Extensions.Logging
 open Dapper.FSharp.PostgreSQL
 
 open Rinha
+open Npgsql
 
 let personTable: QuerySource<Dto.DatabasePessoaDto> =
     table'<Dto.DatabasePessoaDto> "pessoas"
 
 type CountPessoas = { Value: int64 }
 
-let insertPessoa (logger: ILogger) (conn: IDbConnection) (pessoa: Dto.DatabasePessoaDto) : Task<Result<int, string>> =
+let insertPessoa
+    (logger: ILogger)
+    (conn: NpgsqlConnection)
+    (pessoa: Dto.DatabasePessoaDto)
+    : Task<Result<int, string>> =
     task {
         try
             let! result =
@@ -33,7 +37,7 @@ let insertPessoa (logger: ILogger) (conn: IDbConnection) (pessoa: Dto.DatabasePe
 
 let searchPessoasByT
     (logger: ILogger)
-    (conn: IDbConnection)
+    (conn: NpgsqlConnection)
     (t: string)
     : Task<Result<IEnumerable<Dto.DatabasePessoaDto>, string>> =
     task {
@@ -57,7 +61,7 @@ let searchPessoasByT
 
 let searchPessoaById
     (logger: ILogger)
-    (conn: IDbConnection)
+    (conn: NpgsqlConnection)
     (id: Guid)
     : Task<Result<IEnumerable<Dto.DatabasePessoaDto>, string>> =
     task {
@@ -75,7 +79,7 @@ let searchPessoaById
             return Error err.Message
     }
 
-let countPessoas (logger: ILogger) (conn: IDbConnection) : Task<Result<IEnumerable<CountPessoas>, string>> =
+let countPessoas (logger: ILogger) (conn: NpgsqlConnection) : Task<Result<IEnumerable<CountPessoas>, string>> =
     task {
         try
             let! result =

@@ -14,6 +14,7 @@ open NATS.Client.Core
 open NATS.Client.Hosting
 
 open Rinha
+open Rinha.BackgroundService
 
 let errorHandler (ex: Exception) (logger: ILogger) =
     logger.LogError(EventId(), ex, "An unhandled exception has occurred while executing the request.")
@@ -114,6 +115,9 @@ let configureServices (services: IServiceCollection) =
         .AddSingleton<Handlers.IChannelPessoa>(getChannelPessoa)
         .AddSingleton<Handlers.INatsOwnChannel>(Rinha.Environment.NATS_OWN_CHANNEL)
     |> ignore
+
+    services.AddHostedService<InsercaoRegistrosPessoas>() |> ignore
+    // services.AddSingleton<IHostedService, SincronizacaoBuscaPessoas>() |> ignore
 
     services.AddOutputCache() |> ignore
 

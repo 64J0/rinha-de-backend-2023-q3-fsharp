@@ -13,6 +13,7 @@ open Microsoft.Extensions.Logging
 open FsToolkit.ErrorHandling
 open NATS.Client.Core
 open Giraffe
+open Npgsql
 
 open Rinha
 
@@ -26,7 +27,7 @@ type INatsOwnChannel = string
 
 let createPessoaHandler () =
     fun (next: HttpFunc) (ctx: HttpContext) ->
-        let conn: IDbConnection = Database.getDbConnection ()
+        let conn: NpgsqlConnection = Database.getDbConnection ()
         let logger: ILogger = ctx.GetLogger()
         let serializer: Json.ISerializer = ctx.GetJsonSerializer()
         let apelidoPessoas: IApelidoPessoas = ctx.GetService<IApelidoPessoas>()
@@ -125,7 +126,7 @@ let createPessoaHandler () =
 
         let storePessoaOnDatabase
             (logger: ILogger)
-            (conn: IDbConnection)
+            (conn: NpgsqlConnection)
             (databasePessoaDtoResultTask: Task<Result<Dto.DatabasePessoaDto, string>>)
             : Task<Result<int, string>> =
             task {
@@ -167,7 +168,7 @@ let createPessoaHandler () =
 
 let searchPessoasByTHandler () =
     fun (next: HttpFunc) (ctx: HttpContext) ->
-        let conn: IDbConnection = Database.getDbConnection ()
+        let conn: NpgsqlConnection = Database.getDbConnection ()
         let logger: ILogger = ctx.GetLogger()
         let serializer: Json.ISerializer = ctx.GetJsonSerializer()
         let buscaMap: IBuscaMap = ctx.GetService<IBuscaMap>()
@@ -230,7 +231,7 @@ let searchPessoasByTHandler () =
 
 let searchPessoaByIdHandler (input: string) =
     fun (next: HttpFunc) (ctx: HttpContext) ->
-        let conn: IDbConnection = Database.getDbConnection ()
+        let conn: NpgsqlConnection = Database.getDbConnection ()
         let logger: ILogger = ctx.GetLogger()
         let serializer: Json.ISerializer = ctx.GetJsonSerializer()
         let pessoasById: IPessoasById = ctx.GetService<IPessoasById>()
@@ -324,7 +325,7 @@ let searchPessoaByIdHandler (input: string) =
 
 let countPessoasHandler () =
     fun (next: HttpFunc) (ctx: HttpContext) ->
-        let conn: IDbConnection = Database.getDbConnection ()
+        let conn: NpgsqlConnection = Database.getDbConnection ()
         let logger: ILogger = ctx.GetLogger()
 
         use _ = logger.BeginScope("CountPessoasHandler")
