@@ -13,4 +13,4 @@ FROM mcr.microsoft.com/dotnet/aspnet:7.0
 WORKDIR /app
 
 COPY --from=build-env /app/out .
-ENTRYPOINT ["dotnet", "rinha-de-backend-2023-q3-fsharp.dll"]
+ENTRYPOINT ["dotnet", "rinha-de-backend-q3-fsharp.dll"]

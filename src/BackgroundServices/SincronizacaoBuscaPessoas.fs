@@ -11,12 +11,11 @@ open NATS.Client.Core
 open Rinha
 open Rinha.Handlers
 
-type SincronizacaoBuscaPessoas
-    (logger: ILogger, pessoasMap: IBuscaMap, pessoasById: IPessoasById, apelidoPessoas: IApelidoPessoas) =
+type SincronizacaoBuscaPessoas(pessoasMap: IBuscaMap, pessoasById: IPessoasById, apelidoPessoas: IApelidoPessoas) =
     inherit BackgroundService()
 
     let _pessoasMap: IBuscaMap = pessoasMap
-    let _logger: ILogger = logger
+    let _logger: ILogger = NullLogger.Instance
     let natsOwnChannel = Environment.NATS_OWN_CHANNEL
     let _pessoasById: IPessoasById = pessoasById
     let _apelidoPessoas: IApelidoPessoas = apelidoPessoas

@@ -5,15 +5,16 @@ open System.Threading.Tasks
 open System.Collections.Generic
 open Microsoft.Extensions.Logging
 open Microsoft.Extensions.Hosting
+open Microsoft.Extensions.Logging.Abstractions
 open Npgsql
 
 open Rinha
 open Rinha.Handlers
 
-type InsercaoRegistrosPessoas(logger: ILogger, channel: IChannelPessoa, pessoasMap: IBuscaMap) =
+type InsercaoRegistrosPessoas(channel: IChannelPessoa, pessoasMap: IBuscaMap) =
     inherit BackgroundService()
 
-    let _logger: ILogger = logger
+    let _logger: ILogger = NullLogger.Instance
     let _channel: IChannelPessoa = channel
     let _pessoasMap: IBuscaMap = pessoasMap
     let _conn: NpgsqlConnection = Rinha.Database.getDbConnection ()

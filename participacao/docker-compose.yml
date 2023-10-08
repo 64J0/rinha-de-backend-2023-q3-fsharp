@@ -28,9 +28,7 @@ services:
           memory: '0.3GB'
   
   api01:
-    # CHANGEME
-    # image: andr3marra/rinha-api-2023
-    image: busybox
+    image: rinha-api-2023
     hostname: rinha-api01
     depends_on:
       - db
@@ -53,9 +51,7 @@ services:
           memory: '0.9GB'
   
   api02:
-    # CHANGEME
-    # image: andr3marra/rinha-api-2023
-    image: busybox
+    image: rinha-api-2023
     hostname: rinha-api02
     depends_on:
       - db

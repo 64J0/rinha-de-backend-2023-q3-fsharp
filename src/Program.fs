@@ -108,13 +108,10 @@ let configureServices (services: IServiceCollection) =
     // https://www.compositional-it.com/news-blog/dependency-injection-with-asp-net-and-f/
     // https://giraffe.wiki/docs#dependency-management
     // https://dev.to/jhewlett/dependency-injection-in-f-web-apis-4h2o
-    services
-        .AddSingleton<Handlers.IBuscaMap>(getBuscaMap)
-        .AddSingleton<Handlers.IPessoasById>(getPessoasById)
-        .AddSingleton<Handlers.IApelidoPessoas>(getApelidoPessoas)
-        .AddSingleton<Handlers.IChannelPessoa>(getChannelPessoa)
-        .AddSingleton<Handlers.INatsOwnChannel>(Rinha.Environment.NATS_OWN_CHANNEL)
-    |> ignore
+    services.AddSingleton<Handlers.IBuscaMap>(getBuscaMap) |> ignore
+    services.AddSingleton<Handlers.IPessoasById>(getPessoasById) |> ignore
+    services.AddSingleton<Handlers.IApelidoPessoas>(getApelidoPessoas) |> ignore
+    services.AddSingleton<Handlers.IChannelPessoa>(getChannelPessoa) |> ignore
 
     services.AddHostedService<Insert.InsercaoRegistrosPessoas>() |> ignore
 

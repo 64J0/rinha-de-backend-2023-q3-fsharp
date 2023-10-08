@@ -23,7 +23,6 @@ type IBuscaMap = ConcurrentDictionary<string, Dto.DatabasePessoaDto>
 type IPessoasById = ConcurrentDictionary<Guid, Dto.DatabasePessoaDto>
 type IChannelPessoa = Channel<Dto.DatabasePessoaDto>
 type IApelidoPessoas = ConcurrentDictionary<string, byte>
-type INatsOwnChannel = string
 
 let createPessoaHandler () =
     fun (next: HttpFunc) (ctx: HttpContext) ->
