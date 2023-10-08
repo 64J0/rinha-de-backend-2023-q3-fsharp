@@ -116,8 +116,10 @@ let configureServices (services: IServiceCollection) =
         .AddSingleton<Handlers.INatsOwnChannel>(Rinha.Environment.NATS_OWN_CHANNEL)
     |> ignore
 
-    services.AddHostedService<InsercaoRegistrosPessoas>() |> ignore
-    // services.AddSingleton<IHostedService, SincronizacaoBuscaPessoas>() |> ignore
+    services.AddHostedService<Insert.InsercaoRegistrosPessoas>() |> ignore
+
+    services.AddSingleton<IHostedService, Sync.SincronizacaoBuscaPessoas>()
+    |> ignore
 
     services.AddOutputCache() |> ignore
 

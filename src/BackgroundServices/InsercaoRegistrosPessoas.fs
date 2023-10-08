@@ -1,4 +1,4 @@
-module Rinha.BackgroundService
+module Rinha.BackgroundService.Insert
 
 open System.Threading
 open System.Threading.Tasks
@@ -13,10 +13,10 @@ open Rinha.Handlers
 type InsercaoRegistrosPessoas(logger: ILogger, channel: IChannelPessoa, pessoasMap: IBuscaMap) =
     inherit BackgroundService()
 
-    let _logger = logger
-    let _channel = channel
-    let _pessoasMap = pessoasMap
-    let _conn = Rinha.Database.getDbConnection ()
+    let _logger: ILogger = logger
+    let _channel: IChannelPessoa = channel
+    let _pessoasMap: IBuscaMap = pessoasMap
+    let _conn: NpgsqlConnection = Rinha.Database.getDbConnection ()
 
     override this.ExecuteAsync(stoppingToken: CancellationToken) =
         task {
