@@ -1,9 +1,6 @@
 module Rinha.BackgroundService.Sync
 
 open System.Threading
-open System.Threading.Tasks
-open System.Collections.Generic
-open Microsoft.Extensions.Logging
 open Microsoft.Extensions.Hosting
 open Microsoft.Extensions.Logging.Abstractions
 open NATS.Client.Core
@@ -15,8 +12,7 @@ type SincronizacaoBuscaPessoas(pessoasMap: IBuscaMap, pessoasById: IPessoasById,
     inherit BackgroundService()
 
     let _pessoasMap: IBuscaMap = pessoasMap
-    let _logger: ILogger = NullLogger.Instance
-    let natsOwnChannel = Environment.NATS_OWN_CHANNEL
+    let _natsOwnChannel = Environment.NATS_OWN_CHANNEL
     let _pessoasById: IPessoasById = pessoasById
     let _apelidoPessoas: IApelidoPessoas = apelidoPessoas
 
@@ -65,7 +61,7 @@ type SincronizacaoBuscaPessoas(pessoasMap: IBuscaMap, pessoasById: IPessoasById,
 
             try
                 use! sub =
-                    natsConnection.SubscribeAsync<Dto.DatabasePessoaDto>(natsOwnChannel, "", natSubOpts, stoppingToken)
+                    natsConnection.SubscribeAsync<Dto.DatabasePessoaDto>(_natsOwnChannel, "", natSubOpts, stoppingToken)
 
                 let channelMsg = sub.Msgs.ReadAllAsync(stoppingToken).GetAsyncEnumerator()
 
@@ -87,6 +83,6 @@ type SincronizacaoBuscaPessoas(pessoasMap: IBuscaMap, pessoasById: IPessoasById,
                     else
                         ()
             with
-            | :? System.NullReferenceException as ex -> _logger.LogCritical("System.NullReferenceException", ex.Message)
-            | ex -> _logger.LogCritical(ex.Message)
+            | :? System.NullReferenceException as ex -> printfn $"System.NullReferenceException\n{ex.Message}"
+            | ex -> printfn $"{ex.Message}"
         }

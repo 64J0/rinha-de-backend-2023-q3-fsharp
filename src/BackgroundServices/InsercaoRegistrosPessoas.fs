@@ -3,9 +3,7 @@ module Rinha.BackgroundService.Insert
 open System.Threading
 open System.Threading.Tasks
 open System.Collections.Generic
-open Microsoft.Extensions.Logging
 open Microsoft.Extensions.Hosting
-open Microsoft.Extensions.Logging.Abstractions
 open Npgsql
 
 open Rinha
@@ -14,7 +12,6 @@ open Rinha.Handlers
 type InsercaoRegistrosPessoas(channel: IChannelPessoa, pessoasMap: IBuscaMap) =
     inherit BackgroundService()
 
-    let _logger: ILogger = NullLogger.Instance
     let _channel: IChannelPessoa = channel
     let _pessoasMap: IBuscaMap = pessoasMap
     let _conn: NpgsqlConnection = Rinha.Database.getDbConnection ()
@@ -27,10 +24,10 @@ type InsercaoRegistrosPessoas(channel: IChannelPessoa, pessoasMap: IBuscaMap) =
                 try
                     do! _conn.OpenAsync()
                     connected <- true
-                    _logger.LogInformation("Connected to postgres!")
+                    printfn "Connected to postgres!"
                 with exn ->
-                    _logger.LogCritical(sprintf "Exception: %A" exn)
-                    _logger.LogWarning("Retrying connection to postgres...")
+                    printfn $"Exception: {exn}"
+                    printfn "Retrying connection to postgres..."
                     do! Task.Delay 1_000
 
             let pessoas = new List<Dto.DatabasePessoaDto>()
@@ -71,10 +68,10 @@ type InsercaoRegistrosPessoas(channel: IChannelPessoa, pessoasMap: IBuscaMap) =
                                     batch.BatchCommands.Add(batchCmd)
 
                                 let! databaseResult = batch.ExecuteNonQueryAsync()
-                                _logger.LogInformation("Added new Pessoa to database", databaseResult)
+                                printfn "Added new Pessoa to database: {databaseResult}"
                                 pessoas.Clear()
                             with exn ->
-                                _logger.LogError("Error when storing batch of Pessoas on DB", exn)
+                                printfn "Error when storing batch of Pessoas on DB. {exn}"
                         else
                             ()
                     else
