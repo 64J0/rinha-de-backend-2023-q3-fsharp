@@ -41,7 +41,7 @@ services:
       - DOTNET_TC_QuickJitForLoops=1
       - NATS_URL=nats:4222
       - NATS_DESTINATION=api02
-      - NATS_OWN=api01
+      - NATS_OWN_CHANNEL=api01
     expose:
       - "80"
     deploy:
@@ -64,7 +64,7 @@ services:
       - DOTNET_TC_QuickJitForLoops=1
       - NATS_URL=nats:4222
       - NATS_DESTINATION=api01
-      - NATS_OWN=api02
+      - NATS_OWN_CHANNEL=api02
     expose:
       - "80"
     deploy:

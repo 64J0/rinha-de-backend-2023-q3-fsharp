@@ -40,6 +40,7 @@ let webApp =
           >=> route "/contagem-pessoas"
           >=> cacheOutputForOneSecond
           >=> Handlers.countPessoasHandler ()
+          GET >=> route "/debug" >=> Handlers.debug ()
           setStatusCode 404 >=> text "Not found" ]
 
 let configureApp (app: IApplicationBuilder) =

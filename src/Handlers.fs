@@ -26,7 +26,6 @@ type IApelidoPessoas = ConcurrentDictionary<string, byte>
 
 let createPessoaHandler () =
     fun (next: HttpFunc) (ctx: HttpContext) ->
-        let conn: NpgsqlConnection = Database.getDbConnection ()
         let logger: ILogger = ctx.GetLogger()
         let serializer: Json.ISerializer = ctx.GetJsonSerializer()
         let apelidoPessoas: IApelidoPessoas = ctx.GetService<IApelidoPessoas>()
@@ -319,4 +318,22 @@ let countPessoasHandler () =
             | Error err ->
                 ctx.SetStatusCode(int HttpStatusCode.InternalServerError)
                 return! text err next ctx
+        }
+
+let debug () =
+    fun (next: HttpFunc) (ctx: HttpContext) ->
+        let apelidoPessoas: IApelidoPessoas = ctx.GetService<IApelidoPessoas>()
+        let pessoasById: IPessoasById = ctx.GetService<IPessoasById>()
+        let buscaMap: IBuscaMap = ctx.GetService<IBuscaMap>()
+
+        let printValues (name: string) (s: 'T seq) =
+            printfn $"\n{name}\n"
+            s |> Seq.iter (fun x -> printfn $"{x}")
+
+        task {
+            apelidoPessoas |> printValues "apelidoPessoas"
+            pessoasById |> printValues "pessoasById"
+            buscaMap |> printValues "buscaMap"
+
+            return! text "Ok" next ctx
         }

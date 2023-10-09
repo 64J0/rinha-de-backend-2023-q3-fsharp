@@ -57,11 +57,12 @@ type SincronizacaoBuscaPessoas(pessoasMap: IBuscaMap, pessoasById: IPessoasById,
             let natsConnection = new NatsConnection(natsOptions)
             do! natsConnection.ConnectAsync()
 
-            let natSubOpts = NatsSubOpts()
-
             try
                 use! sub =
-                    natsConnection.SubscribeAsync<Dto.DatabasePessoaDto>(_natsOwnChannel, "", natSubOpts, stoppingToken)
+                    natsConnection.SubscribeAsync<Dto.DatabasePessoaDto>(
+                        _natsOwnChannel,
+                        cancellationToken = stoppingToken
+                    )
 
                 let channelMsg = sub.Msgs.ReadAllAsync(stoppingToken).GetAsyncEnumerator()
 
