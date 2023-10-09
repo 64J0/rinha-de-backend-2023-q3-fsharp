@@ -15,26 +15,6 @@ let personTable: QuerySource<Dto.DatabasePessoaDto> =
 
 type CountPessoas = { Value: int64 }
 
-let insertPessoa
-    (logger: ILogger)
-    (conn: NpgsqlConnection)
-    (pessoa: Dto.DatabasePessoaDto)
-    : Task<Result<int, string>> =
-    task {
-        try
-            let! result =
-                insert {
-                    into personTable
-                    value pessoa
-                }
-                |> conn.InsertAsync
-
-            return Ok result
-        with err ->
-            logger.LogCritical($"Error on insertPessoa:\n{err}")
-            return Error err.Message
-    }
-
 let searchPessoasByT
     (logger: ILogger)
     (conn: NpgsqlConnection)

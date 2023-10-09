@@ -123,27 +123,6 @@ let createPessoaHandler () =
                 | Error err -> return Error err
             }
 
-        let storePessoaOnDatabase
-            (logger: ILogger)
-            (conn: NpgsqlConnection)
-            (databasePessoaDtoResultTask: Task<Result<Dto.DatabasePessoaDto, string>>)
-            : Task<Result<int, string>> =
-            task {
-                let! databasePessoaDtoResult = databasePessoaDtoResultTask
-
-                match databasePessoaDtoResult with
-                | Ok databasePessoaDto ->
-                    let! databaseResult = Repository.insertPessoa logger conn databasePessoaDto
-
-                    match databaseResult with
-                    | Ok dbVal -> return Ok dbVal
-                    | Error err ->
-                        logger.LogError(sprintf "[ERROR] storePessoaOnDatabase: %A" err)
-                        ctx.SetStatusCode(int HttpStatusCode.InternalServerError)
-                        return Error "Error when storing Pessoa on database"
-                | Error err -> return Error err
-            }
-
         task {
             let! input = ctx.ReadBodyBufferedFromRequestAsync()
             let inputPessoa = serializer.Deserialize<Dto.InputPessoaDto> input
@@ -156,12 +135,11 @@ let createPessoaHandler () =
                 |> storePessoaOnNatsCache natsConnection
                 |> writeToChannel channel
                 |> storeOnPessoasById pessoasById
-                |> storePessoaOnDatabase logger conn
 
             match result with
             | Ok dbVal ->
                 ctx.SetStatusCode(int HttpStatusCode.Created)
-                return! text $"Pessoa inserted, return code {dbVal}" next ctx
+                return! text $"Pessoa inserted. {dbVal}" next ctx
             | Error err -> return! text err next ctx
         }
 
