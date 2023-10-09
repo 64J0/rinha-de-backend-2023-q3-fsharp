@@ -14,9 +14,16 @@ As instruções originais do desafio podem ser encontradas [aqui](https://github
 * [FsToolkit.ErrorHandling](https://github.com/demystifyfp/FsToolkit.ErrorHandling): Biblioteca com várias funções que ajudam no tratamento de erros.
 * [NATS.Client.Hosting](https://github.com/nats-io/nats.net.v2): Cliente assíncrono em C#/.NET para o [NATS](https://docs.nats.io/nats-concepts/overview).
 
-## Rodando local
+## Rodando o projeto principal no ambiente local
 
 ```bash
 cd participacao/
 docker-compose up -d
+```
+
+## Rodando o benchmark
+
+```bash
+cd Benchmarks/
+dotnet run -c Release
 ```
