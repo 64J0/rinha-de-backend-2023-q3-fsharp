@@ -68,10 +68,10 @@ type InsercaoRegistrosPessoas(channel: IChannelPessoa, pessoasMap: IBuscaMap) =
                                     batch.BatchCommands.Add(batchCmd)
 
                                 let! databaseResult = batch.ExecuteNonQueryAsync()
-                                printfn "Added new Pessoa to database: {databaseResult}"
+                                printfn $"Added new Pessoa to database: {databaseResult}"
                                 pessoas.Clear()
                             with exn ->
-                                printfn "Error when storing batch of Pessoas on DB. {exn}"
+                                printfn $"Error when storing batch of Pessoas on DB. {exn}"
                         else
                             ()
                     else
