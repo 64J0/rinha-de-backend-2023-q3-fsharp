@@ -44,36 +44,36 @@ type InsercaoRegistrosPessoas(channel: IChannelPessoa, pessoasMap: IBuscaMap) =
                     if nxt then
                         pessoas.Add(channelPessoas.Current)
 
-                        // TODO change later to 100
-                        if (pessoas.Count > 3) then
-                            try
-                                // TODO improve
-                                let batch = _conn.CreateBatch()
+                        // TODO use if, although I'm not confident that this is the most reliable option
+                        // for example, if the server crashes with 99 pessoas on the list, we'll lose them
+                        // if (pessoas.Count > 100) then
+                        try
+                            let batch = _conn.CreateBatch()
 
-                                for p in pessoas do
-                                    let batchCmd =
-                                        new NpgsqlBatchCommand(
-                                            """
-                                        insert into pessoas
-                                        (id, apelido, nome, nascimento, stack)
-                                        values ($1, $2, $3, $4, $5);
-                                    """
-                                        )
+                            for p in pessoas do
+                                let batchCmd =
+                                    new NpgsqlBatchCommand(
+                                        """
+                                    insert into pessoas
+                                    (id, apelido, nome, nascimento, stack)
+                                    values ($1, $2, $3, $4, $5);
+                                """
+                                    )
 
-                                    batchCmd.Parameters.AddWithValue(p.id) |> ignore
-                                    batchCmd.Parameters.AddWithValue(p.apelido) |> ignore
-                                    batchCmd.Parameters.AddWithValue(p.nome) |> ignore
-                                    batchCmd.Parameters.AddWithValue(p.nascimento) |> ignore
-                                    batchCmd.Parameters.AddWithValue(p.stack) |> ignore
-                                    batch.BatchCommands.Add(batchCmd)
+                                batchCmd.Parameters.AddWithValue(p.id) |> ignore
+                                batchCmd.Parameters.AddWithValue(p.apelido) |> ignore
+                                batchCmd.Parameters.AddWithValue(p.nome) |> ignore
+                                batchCmd.Parameters.AddWithValue(p.nascimento) |> ignore
+                                batchCmd.Parameters.AddWithValue(p.stack) |> ignore
+                                batch.BatchCommands.Add(batchCmd)
 
-                                let! databaseResult = batch.ExecuteNonQueryAsync()
-                                printfn $"Added new Pessoa to database: {databaseResult}"
-                                pessoas.Clear()
-                            with exn ->
-                                printfn $"Error when storing batch of Pessoas on DB. {exn}"
-                        else
-                            ()
+                            let! databaseResult = batch.ExecuteNonQueryAsync()
+                            printfn $"Added new Pessoa to database: {databaseResult}"
+                            pessoas.Clear()
+                        with exn ->
+                            printfn $"Error when storing batch of Pessoas on DB. {exn}"
+                    // else
+                    //     ()
                     else
                         ()
 
