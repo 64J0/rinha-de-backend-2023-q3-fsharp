@@ -5,6 +5,8 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "rinha-de-backend-q3-fsharp", "src\rinha-de-backend-q3-fsharp.fsproj", "{9FA9087A-F2C0-4DA6-9786-DC9AEEAE6341}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Benchmarks", "Benchmarks\Benchmarks.fsproj", "{377AD565-891A-4BEF-8B90-6BF90E826717}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -18,5 +20,9 @@ Global
 		{9FA9087A-F2C0-4DA6-9786-DC9AEEAE6341}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9FA9087A-F2C0-4DA6-9786-DC9AEEAE6341}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9FA9087A-F2C0-4DA6-9786-DC9AEEAE6341}.Release|Any CPU.Build.0 = Release|Any CPU
+		{377AD565-891A-4BEF-8B90-6BF90E826717}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{377AD565-891A-4BEF-8B90-6BF90E826717}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{377AD565-891A-4BEF-8B90-6BF90E826717}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{377AD565-891A-4BEF-8B90-6BF90E826717}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
