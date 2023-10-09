@@ -24,9 +24,13 @@ type SincronizacaoBuscaPessoas(pessoasMap: IBuscaMap, pessoasById: IPessoasById,
     // https://github.com/andr3marra/rinha-de-backend-2023-q3-csharp/blob/main/src/SincronizacaoBuscaPessoas.cs
     override this.ExecuteAsync(stoppingToken: CancellationToken) =
         task {
+            let natsUrl = Rinha.Environment.NATS_URL
+            let natsLoggerFactory = NullLoggerFactory.Instance
+            let natsObjectPoolSize = 50_000
+
             let natsOptions =
                 NatsOpts(
-                    Rinha.Environment.NATS_URL, // Url
+                    natsUrl, // Url
                     NatsOpts.Default.Name,
                     NatsOpts.Default.Echo,
                     NatsOpts.Default.Verbose,
@@ -34,7 +38,7 @@ type SincronizacaoBuscaPessoas(pessoasMap: IBuscaMap, pessoasById: IPessoasById,
                     NatsOpts.Default.AuthOpts,
                     NatsOpts.Default.TlsOpts,
                     NatsOpts.Default.Serializer,
-                    NullLoggerFactory.Instance, // LoggerFactory
+                    natsLoggerFactory, // LoggerFactory
                     NatsOpts.Default.WriterBufferSize,
                     NatsOpts.Default.ReaderBufferSize,
                     NatsOpts.Default.UseThreadPoolCallback,
@@ -45,7 +49,7 @@ type SincronizacaoBuscaPessoas(pessoasMap: IBuscaMap, pessoasById: IPessoasById,
                     NatsOpts.Default.ReconnectWait,
                     NatsOpts.Default.ReconnectJitter,
                     NatsOpts.Default.ConnectTimeout,
-                    50000, // ObjectPoolSize
+                    natsObjectPoolSize, // ObjectPoolSize
                     NatsOpts.Default.RequestTimeout,
                     NatsOpts.Default.CommandTimeout,
                     NatsOpts.Default.SubscriptionCleanUpInterval,
@@ -59,26 +63,30 @@ type SincronizacaoBuscaPessoas(pessoasMap: IBuscaMap, pessoasById: IPessoasById,
 
             let natSubOpts = NatsSubOpts()
 
-            use! sub =
-                natsConnection.SubscribeAsync<Dto.DatabasePessoaDto>(natsOwnChannel, "", natSubOpts, stoppingToken)
+            try
+                use! sub =
+                    natsConnection.SubscribeAsync<Dto.DatabasePessoaDto>(natsOwnChannel, "", natSubOpts, stoppingToken)
 
-            let channelMsg = sub.Msgs.ReadAllAsync(stoppingToken).GetAsyncEnumerator()
+                let channelMsg = sub.Msgs.ReadAllAsync(stoppingToken).GetAsyncEnumerator()
 
-            let mutable nxt = true
+                let mutable nxt = true
 
-            while nxt do
-                let! nextMsg = channelMsg.MoveNextAsync()
-                nxt <- nextMsg
+                while nxt do
+                    let! nextMsg = channelMsg.MoveNextAsync()
+                    nxt <- nextMsg
 
-                if nxt then
-                    let msg = channelMsg.Current
+                    if nxt then
+                        let msg = channelMsg.Current
 
-                    let pessoa = msg.Data
-                    let buscaStackValue = pessoa.stack
-                    let buscaValue = $"{pessoa.apelido}{pessoa.nome}{buscaStackValue}"
-                    _pessoasMap.TryAdd(buscaValue, pessoa) |> ignore
-                    _pessoasById.TryAdd(pessoa.id, pessoa) |> ignore
-                    _apelidoPessoas.TryAdd(pessoa.apelido, byte 0) |> ignore
-                else
-                    ()
+                        let pessoa = msg.Data
+                        let buscaStackValue = pessoa.stack
+                        let buscaValue = $"{pessoa.apelido}{pessoa.nome}{buscaStackValue}"
+                        _pessoasMap.TryAdd(buscaValue, pessoa) |> ignore
+                        _pessoasById.TryAdd(pessoa.id, pessoa) |> ignore
+                        _apelidoPessoas.TryAdd(pessoa.apelido, byte 0) |> ignore
+                    else
+                        ()
+            with
+            | :? System.NullReferenceException as ex -> _logger.LogCritical("System.NullReferenceException", ex.Message)
+            | ex -> _logger.LogCritical(ex.Message)
         }
