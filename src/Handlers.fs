@@ -24,6 +24,7 @@ type IPessoasById = ConcurrentDictionary<Guid, Dto.DatabasePessoaDto>
 type IChannelPessoa = Channel<Dto.DatabasePessoaDto>
 type IApelidoPessoas = ConcurrentDictionary<string, byte>
 
+// TODO improve organization (using CE maybe)
 let createPessoaHandler () =
     fun (next: HttpFunc) (ctx: HttpContext) ->
         let logger: ILogger = ctx.GetLogger()
@@ -142,6 +143,7 @@ let createPessoaHandler () =
             | Error err -> return! text err next ctx
         }
 
+// TODO improve organization (using CE maybe)
 let searchPessoasByTHandler () =
     fun (next: HttpFunc) (ctx: HttpContext) ->
         let conn: NpgsqlConnection = Database.getDbConnection ()
@@ -205,6 +207,7 @@ let searchPessoasByTHandler () =
                 return! text "Please inform 't'" next ctx
         }
 
+// TODO improve organization (using CE maybe)
 let searchPessoaByIdHandler (input: string) =
     fun (next: HttpFunc) (ctx: HttpContext) ->
         let conn: NpgsqlConnection = Database.getDbConnection ()
@@ -237,7 +240,7 @@ let searchPessoaByIdHandler (input: string) =
                     | false, _ -> return None
             }
 
-        let waitTenSeconds (pessoa: Task<Option<Dto.DatabasePessoaDto>>) : Task<Option<Dto.DatabasePessoaDto>> =
+        let waitTenMilliseconds (pessoa: Task<Option<Dto.DatabasePessoaDto>>) : Task<Option<Dto.DatabasePessoaDto>> =
             task {
                 let! pessoa' = pessoa
 
@@ -258,9 +261,9 @@ let searchPessoaByIdHandler (input: string) =
                 let! result =
                     task { return None }
                     |> tryReadPessoaFromCache pessoasById guid
-                    |> waitTenSeconds
+                    |> waitTenMilliseconds
                     |> tryReadPessoaFromCache pessoasById guid
-                    |> waitTenSeconds
+                    |> waitTenMilliseconds
                     |> tryReadPessoaFromCache pessoasById guid
 
                 match result with
